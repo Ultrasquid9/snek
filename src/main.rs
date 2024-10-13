@@ -3,7 +3,8 @@ use macroquad::prelude::*;
 /// Stores a snek
 struct Snek {
     body: Vec<Vec2>,
-    dir: SnekDir
+    dir: SnekDir,
+    score: usize
 }
 
 struct YastyFruit {
@@ -13,11 +14,6 @@ struct YastyFruit {
 }
 
 impl Snek {
-    /// Calculates the score from the Snek len
-    fn calc_score(&self) -> usize {
-        (&self.body.len() - 10) / 10
-    }
-
     /// Gets a new position for the snek
     fn get_new_pos(&self, dir: &SnekDir) -> Vec2 {
         let mut new_pos = Vec2 {
@@ -45,7 +41,7 @@ impl Snek {
 
     /// Increases the size of the snek by 10
     fn expand_snek(&mut self) {
-        for _i in 1..10 {
+        for _i in 1..16 {
             self.body.push(Vec2 {
                 x: self.body[self.body.len() - 1].x.clone(),
                 y: self.body[self.body.len() - 1].y.clone(),
@@ -60,7 +56,8 @@ impl Snek {
                 x: screen_width() / 2.0, 
                 y: screen_height() / 2.0
             }],
-            dir: SnekDir::None
+            dir: SnekDir::None,
+            score: 0
         };
         snek.expand_snek();
         return snek;
@@ -142,7 +139,7 @@ async fn main() {
             draw_text("you died lmao", (screen_width() / 2.0) - 300.0, screen_height() / 2.0, 100.0, RED);
             draw_text("press the arrow keys to restart", (screen_width() / 2.0) - 380.0, (screen_height() / 2.0) + 50.0, 60.0, RED);
         } else {
-            draw(&yasty_fruit, &snek, &(snek.calc_score() as i32));
+            draw(&yasty_fruit, &snek);
         }
 
         // Moves the snek based on the current direction it is travelling 
@@ -151,9 +148,10 @@ async fn main() {
         // Checks if the snek should eat a fruit
         if try_eat_fruit(&snek, &mut yasty_fruit, &fruit_textures) {
             snek.expand_snek(); // Expands the snek 
+            snek.score += 1; // Expands the score
 
             // Adds another fruit
-            if yasty_fruit.len() <= 8 && snek.calc_score() % 5 == 0 {
+            if yasty_fruit.len() <= 8 && snek.score % 5 == 0 {
                 let mut new_fruit = yasty_fruit[0].clone();
                 new_fruit.pos = YastyFruit::random_pos();
                 yasty_fruit.push(YastyFruit {
@@ -176,22 +174,17 @@ async fn main() {
     }
 }
 
-/// Gets the distance between two Vec2
-fn dist(pos1: &Vec2, pos2: &Vec2) -> f32 {
-    return ((pos1.x - pos2.x).powf(2.0) + (pos1.y - pos2.y).powf(2.0)).sqrt();
-}
-
 /// Draws the game elements
-fn draw(yasty_fruit: &Vec<YastyFruit>, snek: &Snek, score: &i32) {
+fn draw(yasty_fruit: &Vec<YastyFruit>, snek: &Snek) {
     clear_background(Color::new(0.35, 0.7, 0.1, 1.0));
-
-    draw_text("move the snek with arrow keys", 20.0, 20.0, 20.0, DARKGRAY);
-    draw_text(&format!("score: {}", score), 20.0, 40.0, 20.0, DARKGRAY);
 
     for i in yasty_fruit {
         draw_texture_ex(&i.texture, i.pos.x - 20.0, i.pos.y - 20.0, WHITE, i.params.clone());
     }
     snek.draw_snek();
+
+    draw_text("move the snek with arrow keys", 20.0, 20.0, 20.0, DARKGRAY);
+    draw_text(&format!("score: {}", snek.score), 20.0, 40.0, 20.0, DARKGRAY);
 }
 
 fn get_random_texture(textures: &[Texture2D]) -> Texture2D {
@@ -201,7 +194,7 @@ fn get_random_texture(textures: &[Texture2D]) -> Texture2D {
 /// Checks to see if the snek should eat a fruit
 fn try_eat_fruit(snek: &Snek, yasty_fruit: &mut Vec<YastyFruit>, textures: &[Texture2D]) -> bool {
     for i in yasty_fruit {
-        if dist(&snek.body[0], &i.pos) < 20.0 {
+        if snek.body[0].distance(i.pos) < 20.0 {
             i.pos = YastyFruit::random_pos();
             i.texture = get_random_texture(textures);
             return true;
@@ -225,7 +218,7 @@ fn try_kill_snek(snek: &Snek) -> bool {
             continue;
         }
 
-        if dist(i.1, &snek.body[0]) < 18.0 {
+        if i.1.distance(snek.body[0]) < 18.0 {
             return true;
         }
     }
